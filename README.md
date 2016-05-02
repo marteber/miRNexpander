@@ -8,7 +8,7 @@
      - openpyxl 1.9+
      - webcolors
   * MySQL 5.5+
-  * libSBML 5.10+ built with python API (requirements: swig, libxml2)
+  * *optional:* libSBML 5.10+ built with python API (requirements: swig, libxml2)
    
     Suggested command(s) for installation on Ubuntu 14.04
   ```shell
@@ -21,7 +21,7 @@
 
 1. Suggestions
   * phpmyadmin (to more easily inspect database)
-  * Grant FILE permissions to database user  
+  * *optional:* Grant FILE permissions to database user  
     **Note: Mysql clients connecting to the database server need to enable infile_local to make use of the above!**
 
     Suggested command(s) for installation on Ubuntu 14.04
