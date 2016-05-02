@@ -31,3 +31,17 @@
   > GRANT FILE ON *.* TO <user>@'%';
   > quit
   ```
+
+# USAGE
+Call `./miRwb.py -h` to get an overview of the possible options.
+
+At the moment, it is possible to
+- run a database update (-u, (re)parses files in the (data/db_files)[data/db_files], but does not download new ones),
+- reconstruct interaction networks from scratch (option -b/-B),
+- convert CellDesigner files to GML (option -p),
+- expand existing networks (more involved commands).
+
+Before you start, you have to acquire the desired database files from their respective origin and set up the database in MySQL. There is a file called `database_schema.sql` in the repository's root directory which you can use to get the database skeleton like this:
+```shell
+$ mysql -u <user> -p BioNetworks < database_schema.sql
+```
