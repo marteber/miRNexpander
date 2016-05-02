@@ -1,0 +1,367 @@
+[miRNAworkbench]
+sql_path: sql
+output_path: data/built_networks
+moltypes: gene pri-miRNA miRNA mRNA protein
+
+
+[database]
+host: localhost
+user: miRNA
+passwd: 
+database: BioNetworks
+hardcoded: taxa taxon_aliases genes gene_aliases gene_xrefs
+
+
+[archetypes]  # experimental feature
+mRNA: processedtranscript
+pri-miRNA: processedtranscript
+miRNA: processedtranscript
+processedtranscript: RNA
+kinase: PTMenzyme
+phosphatase: PTMenzyme
+PTMenzyme: enzyme
+enzyme: protein
+phosphoprotein: PTMtarget
+PTMtarget: protein
+bindingprotein: protein
+transcriptionfactor: protein
+targetgene: gene
+miRNA-gene: gene
+gene: DNA
+
+
+[interdefs]  # experimental feature
+intranslation: miRNA mRNA
+phosphorylation: kinase phosphoprotein
+dephosphorylation: phosphatase phosphoprotein
+phosphoswitch: kinase:phosphatase phosphoprotein
+transcription: transcriptionfactor targetgene
+
+
+############################
+### table setups         ###
+############################
+# Each table can be configured in these sections. One table per section.
+# - query: interaction tables only; sets whether information from the table will be used during network reconstruction
+# - update: ( number > 0 ) = relative update order (smaller means earlier), "yes"/"y" = after everything else, other value = only if mentioned explicitly
+# - depends: explicit dependencies on other tables; this also influences the first 'fields' you define later
+# - dir (optional): default directory where the unconverted database files can be found
+# - source: paths to unconverted database files; separate by white space (AVOID whitespaces in path names!); relative paths expected if `dir` is set
+# - sep (optional): the separator to use in parsing the source database files
+# - release (optional): the release number of the database
+# - reldate (optional): the date when the database file was released/last updated
+# - tablename: name of the table in MySQL
+# - (alias/annotation/src + tgt): defines the table type and the molecular type of the stored information (src and tgt are both needed for interactions)
+# - retrieve: indexes of the columns that will be returned in a SELECT query (defaults for annotation: 1, 3, 4, for interaction: 3, 4)
+# - affix: table affix, unique among all tables in this file
+# - columns: parameters per column table, columns whitespace-separated
+# -- The `columns` parameter string is built by concatenating the following strings using colons (':').
+# --- column id: must be unique among all such entries in this file; default practice is using the affix with a numerical counter
+# --- column name: any valid MySQL column name
+# --- column type: 'I' = integer, 'T' = text, integer = varchar of this length
+# --- column attributes (simply concatenate): 'n' = NOT NULL, 'u' = UNIQUE KEY, 'i' = INDEX KEY ('u' trumps 'i')
+############################
+
+### species annotation and aliases
+[db_taxa]
+update: y
+update-order: 10
+dir: ./data/db_files/taxonomy
+#sources: nodes.dmp
+sources: nodes.dmp.* names.dmp.*
+sep: |
+release: cont
+reldate: 2014
+tablename: taxa
+annotation: taxa
+retrieve:
+affix: tax
+columns: %(affix)s_i001:parent_node:I:n
+        %(affix)s_i002:node_ID:I:nu
+        %(affix)s_i003:symbol:200:n
+
+
+### protein annotation and aliases
+[db_genes]
+update: y
+update-order: 20
+depends: db_taxa
+dir: ./data/db_files/NCBI
+#sources: gene_info.hsa.mmu gene2accession.hsa.mmu uniprot_idmapping.hsa uniprot_idmapping.mmu miRNA.dat miRNA_aliases.txt
+sources: gene_info.* gene2accession.* uniprot_idmapping.* miRNA.dat miRNA_aliases.txt
+#sources: gene_info.hsa.mmu 
+#sources: gene_info.hsa.mmu miRNA.dat miRNA_aliases.txt
+#sources: miRNA.dat miRNA_aliases.txt
+sep: \t
+release: cont
+reldate: 2014
+annotation: all
+retrieve:
+affix: gen
+columns: %(affix)s_i001:species:I:
+        %(affix)s_i002:symbol:40:n
+        %(affix)s_i003:description:250:n
+
+
+### pri-miRNA-miRNA interactions
+[db_miRBase]
+query: 0
+update: n
+update-order: 100
+dir: ./data/db_files/miRBase
+sources: r21_miRNA.dat
+sep: 
+release: 21
+reldate: 2014-06-26
+tablename: miRBase
+src: pri-miRNA
+tgt: miRNA
+retrieve:
+affix: miB
+columns: %(affix)s_i001:source:I:i
+        %(affix)s_i002:target:I:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:evidence:40:
+        %(affix)s_i005:start:I:
+        %(affix)s_i006:end:I:
+write: sql txt
+
+
+### miRNA-mRNA interactions
+[db_miRecords]
+query: 1
+update: n
+update-order: 100
+dir: ./data/db_files/miRecords/
+sources: miRecords_version4.csv
+sep: \t
+release: 4
+reldate: 2013-04-10
+tablename: miRecords
+src: miRNA
+tgt: mRNA
+retrieve:
+affix: miR
+columns: %(affix)s_i001:source:I:i
+        %(affix)s_i002:target:I:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:PMIDs:I:
+        %(affix)s_i005:target_site_number:I:
+        %(affix)s_i006:target_site_position:I:
+        %(affix)s_i007:reporter_link_element:T:
+linkout: http://mirecords.biolead.org/interactions.php?species=Homo+sapiens&mirna_acc={}&targetgene_type=symbol&targetgene_info={}&v=yes 0source_db 2symbol
+write: sql txt
+
+
+[db_miRTarBase]
+query: 1
+update: n
+update-order: 100
+dir: ./data/db_files/miRTarBase/
+sources: miRTarBase_4.5_fullDB_2014-01-10.csv
+sep: \t
+release: 4.5
+reldate: 2013-11-01
+tablename: miRTarBase
+src: miRNA
+tgt: mRNA
+src-url:
+retrieve: 3 4 7
+affix: mTB
+columns: %(affix)s_i001:source:I:i
+        %(affix)s_i002:target:I:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:PMIDs:I:
+        %(affix)s_i005:evidence:200:
+        %(affix)s_i006:support_type:45:
+        %(affix)s_i007:accession:10:
+write: sql txt
+
+
+[db_starBase]
+query: 0
+update: n
+update-order: 100
+dir: ./data/db_files/starBase/
+sources: starBase_Human_Interactions_hg19_2014-01-10.txt
+        starBase_Mouse_Interactions_mm10_2014-01-10.txt
+        starBase_Cel_Interactions_ce10_2014-01-10.txt
+sep: \t
+release: 2.0
+reldate: 2013-09
+tablename: starBase
+src: miRNA
+tgt: mRNA
+retrieve: 3
+affix: stB
+columns: %(affix)s_i001:source:I:i
+        %(affix)s_i002:target:I:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:targetScan:20:
+        %(affix)s_i005:picTar:20:
+        %(affix)s_i006:RNA22:20:
+        %(affix)s_i007:PITA:20:
+        %(affix)s_i008:miRanda:20:
+write: sql txt
+
+
+[db_TarBase]
+query: 0
+update: n
+update-order: 100
+dir: ./data/db_files/TarBase/
+sources: TarBase_V5.0.csv
+sep: ,
+release: 5.0
+reldate: 2011
+tablename: TarBase
+src: miRNA
+tgt: mRNA
+retrieve:
+affix: taB
+columns: %(affix)s_i001:source:I:i
+        %(affix)s_i002:target:I:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:PMIDs:I:
+write: sql txt
+
+
+### TF-gene interactions
+[db_TransmiR]
+query: 1
+update: n
+update-order: 100
+dir: ./data/db_files/TransmiR/
+sources: transmir_v1.2.txt
+sep: \t
+release: 1.2
+reldate: 2013-01-30
+tablename: TransmiR
+src: transcriptionfactor
+tgt: pri-miRNA
+retrieve:
+affix: TmR
+columns: %(affix)s_i001:source:25:i
+        %(affix)s_i002:target:25:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:PMIDs:200:
+write: sql txt
+
+
+### protein-protein interactions
+[db_HPRD]
+query: 1
+update: n
+update-order: 100
+dir: ./data/db_files/HPRD/
+sources: BINARY_PROTEIN_PROTEIN_INTERACTIONS.txt
+sep: \t
+release: 9
+reldate: 2010-04-13
+tablename: HPRD
+src: bindingprotein
+tgt: bindingprotein
+retrieve:
+affix: HPR
+columns: %(affix)s_i001:source:25:i
+        %(affix)s_i002:target:25:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:PMIDs:200:
+        %(affix)s_i005:validation:200:
+write: sql txt
+
+
+[db_HTRIdb]
+query: 1
+update: n
+update-order: 100
+dir: ./data/db_files/HTRIdb/
+sources: HTRIdb_data.txt
+sep: \t
+release: 
+reldate: 
+tablename: HTRIdb
+src: transcriptionfactor
+tgt: targetgene
+retrieve:
+affix: HTR
+columns: %(affix)s_i001:source:25:i
+        %(affix)s_i002:target:25:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:PMIDs:200:
+        %(affix)s_i005:validation:200:
+write: sql txt
+
+
+[db_RegPhos]
+query: 1
+update: n
+update-order: 100
+dir: ./data/db_files/RegPhos/
+sources: RegPhos2_Phos_mouse.truncated.corrected
+        RegPhos_Phos_human.truncated.corrected
+sep: \t
+release: 2.0
+reldate: 2013
+tablename: RegPhos
+src: kinase
+tgt: phosphoprotein
+src-url:
+retrieve: 3 4 5
+affix: rph
+columns: %(affix)s_i001:source:I:i
+        %(affix)s_i002:target:I:i
+        %(affix)s_i003:species:200:
+        %(affix)s_i004:regulation:T:
+        %(affix)s_i005:PMIDs:T:
+        %(affix)s_i006:residue:3:
+        %(affix)s_i007:position:I:
+write: sql txt
+
+
+[db_STRING]
+query: 0
+update: n
+update-order: 100
+dir: ./data/dbfiles/STRING/
+sources: protein.actions.v9.1.txt
+sep: \t
+release: 9.1
+reldate: 2013-12-27
+tablename: STRING
+src: protein
+tgt: protein
+retrieve:
+affix: STR
+columns: %(affix)s_i001:source:25:i
+        %(affix)s_i002:target:25:i
+        %(affix)s_i003:regulation:T:
+        %(affix)s_i004:score:20:
+write: sql txt
+        
+
+### output configuration
+[xgmml]
+extension: xgmml
+
+# Colors must be compatible to the 140-member css3 color space (http://w3schools.com/cssref/css_colornames.asp)
+# and can be specified in two ways:
+# - as a css3 color name, e.g. turquoise
+# - as a 6-digit hexadecimal number in python notation concordant to rgb format, e.g. 0x40e0d0 or 0x40E0D0
+# Shapes must be one of the following 9 (PARALLELOGRAM and RHOMBUS are identical) Cytoscape-compatible shapes:
+# - DIAMOND ELLIPSE HEXAGON OCTAGON PARALLELOGRAM RECTANGLE RHOMBUS ROUNDED_RECTANGLE TRIANGLE VEE
+ 
+# Node types: 5 items
+# -> order is the following: fill_color shape label_color height width
+seed: 0x000000 ELLIPSE 0x00ffff 35 95
+pri-miRNA: 0x660066 RECTANGLE 0x000000 35 95
+miRNA: 0x6666ff DIAMOND 0x000000 35 95
+protein: 0xff6600 PARALLELOGRAM 0x000000 35 55
+
+# Edge types: 4 items
+# -> order is the following: line_color arrow_end_source arrow_end_target line_width
+activ: 0x00ff66 0 6 2
+inhib: 0xff0066 0 15 1
+control: 0x999999 0 12 2
+symm: 0x444444 12 12 2
+
